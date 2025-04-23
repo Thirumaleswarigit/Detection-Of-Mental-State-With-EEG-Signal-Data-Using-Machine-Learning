@@ -55,7 +55,7 @@ Traditional mental health tools focus on interviews, surveys, or medical evaluat
 - Dataset:
   CSV File – EEG signal data with features and labels (mental state classes)
 
-🧪 Software Setup:
+## Software Setup:
 Step 1: Install required Python libraries
 pip install django pandas scikit-learn
 Step 2: Load dataset to /media folder as mental-state.csv
