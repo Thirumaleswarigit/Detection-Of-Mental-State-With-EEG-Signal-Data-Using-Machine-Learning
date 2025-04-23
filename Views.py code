@@ -1,0 +1,109 @@
+Views.py :
+from django.shortcuts import render
+from django.contrib import messages
+
+from .forms import PatientRegistrationForm
+from .models import PatientRegistrationModel
+
+# Create your views here.
+
+def PatientRegisterActions(request):
+    if request.method == 'POST':
+        form = PatientRegistrationForm(request.POST)
+        if form.is_valid():
+            print('Data is Valid')
+            form.save()
+            messages.success(request, 'You have been successfully registered')
+            form = PatientRegistrationForm()
+            return render(request, 'PatientRegistrations.html', {'form': form})
+        else:
+            messages.success(request, 'Email or Mobile Already Existed')
+            print("Invalid form")
+    else:
+        form = PatientRegistrationForm()
+    return render(request, 'PatientRegistrations.html', {'form': form})
+
+def PatientLoginCheck(request):
+    if request.method == "POST":
+        loginid = request.POST.get('loginid')
+        pswd = request.POST.get('pswd')
+        print("Login ID = ", loginid, ' Password = ', pswd)
+        try:
+            check = PatientRegistrationModel.objects.get(loginid=loginid, password=pswd)
+            status = check.status
+            print('Status is = ', status)
+            if status == "activated":
+                request.session['id'] = check.id
+                request.session['loggeduser'] = check.name
+                request.session['loginid'] = loginid
+                request.session['email'] = check.email
+                print("User id At", check.id, status)
+                return render(request, 'patient/patientHome.html', {})
+            else:
+                messages.success(request, 'Your Account Not at activated')
+                return render(request, 'patientLogin.html')
+        except Exception as e:
+            print('Exception is ', str(e))
+            pass
+        messages.success(request, 'Invalid Login id and password')
+    return render(request, 'patientLogin.html', {})
+
+
+def PatientHome(request):
+    return render(request,'patient/patientNavbar.html')
+
+
+def MentalStateCheck(request):
+    if request.method == 'POST':
+        input_value = int(request.POST.get('input_value'))
+        import os
+        import pandas as pd
+        from django.conf import settings
+        dataPath = os.path.join(settings.MEDIA_ROOT,'mental-state.csv')
+        data = pd.read_csv(dataPath)
+
+        X = data.iloc[:,:-1]
+        y = data.iloc[:,-1]
+        y = y.astype(int)
+        print('-'*100)
+        print(y)
+        from sklearn.feature_selection import SelectKBest, f_classif
+
+
+
+        # Create an instance of SelectKBest and specify the number of features to select (k)
+        k = 500  # Number of features to select
+        selector = SelectKBest(score_func=f_classif, k=k)
+
+        # Fit the selector on the data
+        selector.fit(X, y)
+
+        # Get the indices of the selected features
+        selected_indices = selector.get_support(indices=True)
+
+        print("Selected feature indices:", selected_indices)
+
+        X = X.iloc[:,selected_indices]
+        input_value = input_value - 2
+        print('len : ',len(X))
+        print(input_value)
+        test_list = X.iloc[input_value].to_list()
+        print('-'*100)
+        print(test_list)
+        from sklearn.model_selection import train_test_split
+        from sklearn.svm import SVC
+        X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.25)
+
+        svc = SVC()
+        svc.fit(X_train,y_train)
+        result = svc.predict([test_list])
+        print(result)
+        if result == 0:
+            result = 'Your Mental state is 0 - Tranquil state (the subjects listening to omforting sounds while their body in relaxation).'
+        if result == 1:
+            result = 'Your Mental State is 1 - Concentrating state (the subjects were to follow the ball of ‘shell game’, concealed beneath one of three cups).'
+        if result == 2:
+            result = 'Your Mental State is 2 - Impartial state (the brain activity was recorded before the previously mentioned tasks with no specific instructions)'
+        return render(request, 'patient/patientPredict.html',{'result':result,'my_list':test_list,'num_cols':10})
+    else:  
+        return render(request, 'patient/patientPredict.html')
